@@ -185,7 +185,8 @@ never both. Vanilla and Vanilla+ always show the bus's own dirt.
 - **Winter roads:** grey slush and salt.
 - **Rain** washes the dust off within minutes and the caked spray slowly; the wheels keep
   laying it on below. Wet dirt is darker and glossy, dry dirt matt.
-- **Windows** get dirty too, and a dirty pane is harder to see through from inside as well.
+- **Windows** get a soft film low down, harder to see through from inside as well. The
+  windscreen stays clear: the wipers keep it so, as OMSI's own `Dirt_Wiped` layer does.
 - **The wash** (game menu, or a bus wash) cleans it along with OMSI's own dirt.
 
 How fast it builds up: an hour on wet roads leaves the wheel arches and lower sides plainly dirty;
