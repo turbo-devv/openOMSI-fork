@@ -504,15 +504,20 @@ fn shade_enhanced(in: FsIn, puddle_weight: ptr<function, vec2<f32>>, capture: bo
     // the road dirt on a vehicle's outside (#1386, `road_dirt`): over the paint and the glass,
     // matt where dry, glossy while wet; a pane dirtied loses its view through it
     // (not on a slot marked `[matl_nodirt]`: material.params2.w's bit 32)
-    if (enh.dirt_n.x > 0.5 && in.params2.w < -500.0 && !terrain && (u32(material.params2.w + 0.5) & 32u) == 0u) {
-        let dirt = road_dirt(in.world, n, glass);
+    // (a pane is a window's glass, `emissive.w` 1; another blended layer - a film of rain drawn
+    // as OMSI's texture, a sticker - takes none: made opaque by the dirt, the rain texture's
+    // drops stood flat over the glass)
+    let dirt_pane = glass && material.emissive.w > 0.5 && material.emissive.w < 1.5;
+    let dirt_layer = mode > 1.5 && !dirt_pane;
+    if (enh.dirt_n.x > 0.5 && in.params2.w < -500.0 && !terrain && !dirt_layer && (u32(material.params2.w + 0.5) & 32u) == 0u) {
+        let dirt = road_dirt(in.world, n, dirt_pane);
         if (dirt.a > 0.0) {
             albedo = mix(albedo, dirt.rgb, dirt.a);
             ambient_albedo = mix(ambient_albedo, dirt.rgb, dirt.a);
             rough = mix(rough, mix(0.9, 0.45, dirt_wet), dirt.a);
             f0 = mix(f0, vec3<f32>(0.03), dirt.a);
             metal = metal * (1.0 - dirt.a);
-            if (glass) {
+            if (dirt_pane) {
                 alpha = mix(alpha, 1.0, dirt.a * 0.85);
             }
         }

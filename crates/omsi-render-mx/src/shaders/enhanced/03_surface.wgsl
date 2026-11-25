@@ -293,21 +293,30 @@ fn road_dirt(world: vec3<f32>, n: vec3<f32>, pane: bool) -> vec4<f32> {
         let film = exp(-h / 0.9) * outside + back * exp(-h / 1.8) * 0.75;
         spray = spray * on_side + back * exp(-h / 1.0) * 0.45;
         let dust = outside * (0.55 + 0.45 * exp(-h / 1.6)) + on_roof * 0.8;
-        var c = clamp(am.x * spray * 1.2 + am.y * film + am.z * dust * 0.6, 0.0, 1.0);
-        // splashes and, where it is wet, streaks running down
-        let q = vec2<f32>(p.y + p.x * 0.7, p.z);
-        let splash = vnoise_f(q, 6.0, vec2<f32>(3.7, 1.3)) * 0.45 + vnoise_f(q, 19.0, vec2<f32>(9.1, 4.4)) * 0.3 + vnoise_f(q, 57.0, vec2<f32>(2.2, 7.9)) * 0.25;
-        let streak = vnoise_f(vec2<f32>(q.x * 9.0, q.y * 0.6), 1.0, vec2<f32>(5.3, 2.9));
-        let grain = mix(splash, streak, am.w * 0.6);
-        // a thin film where any lies, and crisp-edged splashes over it where it is thick
-        let spots = smoothstep(grain * 0.85 - 0.03, grain * 0.85 + 0.03, c) * (0.5 + 0.35 * c);
-        c = max(c * 0.5, spots);
         // ordinary grime grey-brown, salt and slush pale grey, mud dark brown; darker wet
         var col = vec3<f32>(0.20, 0.17, 0.13);
         col = mix(col, vec3<f32>(0.42, 0.42, 0.40), kind.x);
         col = mix(col, vec3<f32>(0.14, 0.10, 0.06), kind.y);
         col = col * mix(1.0, 0.6, am.w);
         dirt_wet = am.w;
+        let q = vec2<f32>(p.y + p.x * 0.7, p.z);
+        let splash = vnoise_f(q, 6.0, vec2<f32>(3.7, 1.3)) * 0.45 + vnoise_f(q, 19.0, vec2<f32>(9.1, 4.4)) * 0.3 + vnoise_f(q, 57.0, vec2<f32>(2.2, 7.9)) * 0.25;
+        if (pane) {
+            // A window: a soft film of what the wheels and the wake throw, thick low down and
+            // thin higher up, never the dust's even veil; nothing on the front, which the
+            // wipers keep clear (OMSI's own `Dirt_Wiped` is the windscreen's). No splashes
+            // or streaks with hard edges: they stood as blocks in the view through the glass.
+            let front = on_end * select(0.0, 1.0, p.y > mid.y);
+            let film_pane = clamp(am.x * spray * 1.2 + am.y * film, 0.0, 1.0) * (1.0 - front);
+            return vec4<f32>(col, film_pane * (0.75 + 0.25 * splash) * 0.6);
+        }
+        var c = clamp(am.x * spray * 1.2 + am.y * film + am.z * dust * 0.6, 0.0, 1.0);
+        // splashes and, where it is wet, streaks running down
+        let streak = vnoise_f(vec2<f32>(q.x * 4.0, q.y * 0.5), 1.0, vec2<f32>(5.3, 2.9));
+        let grain = mix(splash, streak, am.w * 0.5);
+        // a thin film where any lies, and crisp-edged splashes over it where it is thick
+        let spots = smoothstep(grain * 0.85 - 0.03, grain * 0.85 + 0.03, c) * (0.5 + 0.35 * c);
+        c = max(c * 0.5, spots);
         return vec4<f32>(col, c);
     }
     return vec4<f32>(0.0);
