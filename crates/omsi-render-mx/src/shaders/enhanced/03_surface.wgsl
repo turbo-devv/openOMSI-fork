@@ -228,6 +228,16 @@ fn emission_light(buv: vec2<f32>, base: vec3<f32>, slot: f32, pre: f32) -> vec3<
 // above it, thinning with height; the road film all round low down and higher up the back,
 // which the wake behind the vehicle coats; dust all over, the roof too. Broken up in
 // splashes, run down in streaks where it is wet.
+// The spray off a wheel on the axle at `ay` (model y) at a point `y` along the body and `h`
+// over its bottom: round the arch the tyre throws it up and back - little ahead of the
+// wheel - and a trail behind it, thinning with height.
+fn axle_spray(ay: f32, y: f32, h: f32, radius: f32) -> f32 {
+    let behind = ay - y;
+    let arch = smoothstep(radius * 2.0, radius * 1.05, length(vec2<f32>(behind, h - radius))) * smoothstep(-radius * 0.6, radius * 0.4, behind) * 0.7;
+    let trail = smoothstep(-0.3, 0.5, behind) * exp(-max(behind, 0.0) / 2.2) * exp(-h / (radius * 2.4));
+    return max(arch, trail);
+}
+
 // (and how wet the dirt that `road_dirt` found is, 0..1)
 var<private> dirt_wet: f32;
 fn road_dirt(world: vec3<f32>, n: vec3<f32>, pane: bool) -> vec4<f32> {
@@ -270,16 +280,14 @@ fn road_dirt(world: vec3<f32>, n: vec3<f32>, pane: bool) -> vec4<f32> {
         let h = max(p.z - lo.z, 0.0);
         let radius = r.w;
         // the spray off the wheels: round the arch and behind it, low down
-        var spray = 0.0;
-        let axles = i32(o.w + 0.5);
-        for (var k = 0; k < axles; k = k + 1) {
-            let ay = enh.dirt[b + 5][k];
-            let behind = ay - p.y;
-            // (round the arch the tyre throws it up and back: little ahead of the wheel)
-            let arch = smoothstep(radius * 2.0, radius * 1.05, length(vec2<f32>(behind, h - radius))) * smoothstep(-radius * 0.6, radius * 0.4, behind) * 0.7;
-            let trail = smoothstep(-0.3, 0.5, behind) * exp(-max(behind, 0.0) / 2.2) * exp(-h / (radius * 2.4));
-            spray = max(spray, max(arch, trail));
-        }
+        // (the four axles' places spelt out: a loop indexing the vector's components made
+        // Metal's compiler fail on some of the lean pipelines)
+        let ax = enh.dirt[b + 5];
+        let axles = o.w;
+        var spray = axle_spray(ax.x, p.y, h, radius) * step(0.5, axles);
+        spray = max(spray, axle_spray(ax.y, p.y, h, radius) * step(1.5, axles));
+        spray = max(spray, axle_spray(ax.z, p.y, h, radius) * step(2.5, axles));
+        spray = max(spray, axle_spray(ax.w, p.y, h, radius) * step(3.5, axles));
         // the back: what the last wheels throw and the wake lay on it, reaching high
         let back = on_end * select(0.0, 1.0, p.y < mid.y);
         let film = exp(-h / 0.9) * outside + back * exp(-h / 1.8) * 0.75;
